@@ -1,20 +1,19 @@
 package sam.sceval
 
-import EvaluationPimps._
-import org.scalacheck.{Arbitrary, Gen, Prop}
+import org.scalacheck.{Arbitrary, Gen}
 import org.specs2.ScalaCheck
-import org.specs2.matcher.{MatchResult, Parameters}
+import org.specs2.matcher.Parameters
 import org.specs2.mutable.Specification
+import sam.sceval.EvaluationPimps._
 
 import scala.util.Random
 
-class PimpedScoresAndLabelsRDDProps extends Specification with ScalaCheck {
+class PimpedScoresAndLabelsRDDProps extends Specification with ScalaCheck with IntellijHighlighingTrick {
   sequential
 
   val sc = StaticSparkContext.staticSc
   val rand = new Random()
-  // Trick to make Intellij highlight correctly
-  implicit def toProp(m: MatchResult[Any]): Prop = resultProp(m)
+
   implicit val params = Parameters(minTestsOk = 50)
   implicit val _: Arbitrary[Int] = Arbitrary(Gen.choose(1, 10))
 

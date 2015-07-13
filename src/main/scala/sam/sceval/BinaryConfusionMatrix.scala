@@ -62,6 +62,9 @@ case class BinaryConfusionMatrix(tp: Long, fp: Long, tn: Long, fn: Long) {
   def falsePositiveRate: Double = if (actualNegatives == 0) 0.0 else fp.toDouble / actualNegatives
   def accuracy: Double = (tp + tn).toDouble / total
 
+  def +(other: BinaryConfusionMatrix): BinaryConfusionMatrix =
+    BinaryConfusionMatrix(other.tp + tp, other.fp + fp, other.tn + tn, other.fn + fn)
+
   @deprecated("Don't use meaningless measures, use something that has a direct probabilistic meaning")
   def f1Measure(beta: Double = 1.0): Double = {
     val beta2 = beta * beta
