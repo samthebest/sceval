@@ -33,11 +33,24 @@ case class XValidator(folds: Int = 10,
     }
   }
 
-  def evaluate(scoresAndLabelsByModel: RDD[Map[Int, (Double, Boolean)]]): Array[BinaryConfusionMatrix] =
-    scoresAndLabelsByModel.confusionsByModel(evalCacheIntermediate, evalBins, evalRecordsPerBin).map(_._2)
+  // FIXME Change signature to RDD[(Int, Double, Boolean)] and write logic to arbitrarily pair together examples from
+  // different models
+
+  // AHAHA!!!  We could tweak the other algo very simply: We only assume uniform keySets so we can use getOrElse(0)
+
+  def evaluate(scoresAndLabelsByModel: RDD[(Int, Double, Boolean)]): Array[BinaryConfusionMatrix] =
+    scoresAndLabelsByModel.map(p => {
+      // put guys together from different folds until we complete a map
+      // There may be a map and guys left over,
+      // we could just collect these at the end, join them together, then append to the other RDD
+      // The resulting collect would only explode if the number of partitions was very large and so was the number of
+      // folds
+      Map(p._1 -> (p._2, p._3))
+    })
+    .confusionsByModel(evalCacheIntermediate, evalBins, evalRecordsPerBin).map(_._2)
     .flatMap(_.zipWithIndex.map(_.swap)).reduceByKey(_ + _).collect().sortBy(_._1).map(_._2)
 
-  def xval[Features](trainAndScoreByModel: RDD[(Int, Features, Boolean)] => RDD[Map[Int, (Double, Boolean)]],
+  def xval[Features](trainAndScoreByModel: RDD[(Int, Features, Boolean)] => RDD[(Int, Double, Boolean)],
                      featuresAndLabel: RDD[(Features, Boolean)]): Array[BinaryConfusionMatrix] =
     evaluate(trainAndScoreByModel(split(featuresAndLabel)))
 }

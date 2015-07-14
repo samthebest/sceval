@@ -6,7 +6,7 @@ import org.specs2.ScalaCheck
 import org.specs2.matcher.Parameters
 import org.specs2.mutable.Specification
 
-class EvaluationUtilsSpecs extends Specification with ScalaCheck {
+class BinUtilsSpecs extends Specification with ScalaCheck {
   sequential
 
   implicit val params = Parameters(minTestsOk = 500)

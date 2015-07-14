@@ -66,8 +66,9 @@ object EvaluationPimps extends Logging {
     *
     * This algorithm costs 4 stages and causes a job that runs the first 2.
     *
-    * @param scoreAndLabelsByModel an RDD of Maps from the model to a score-label pair.  Each Map must have the same
-    *                              `keySet`*/
+    * @param scoreAndLabelsByModel an RDD of Maps from the `Model` to a score-label pair.  It's assumed that for each
+    *                              `Model` the total number of score-label pairs in the RDD is equal, if not then
+    *                              the behaviour is unspecified and a warning is printed. */
   // Doesn't mega scale in the number of bins that well (but neither did older implementation)
   implicit class PimpedModelOutputsRDD[Model: ClassTag](scoreAndLabelsByModel: RDD[Map[Model, (Double, Boolean)]]) {
 
@@ -122,18 +123,29 @@ object EvaluationPimps extends Logging {
                                       bins: Option[Int]): Option[RDD[(Model, Boolean, Int)]] = {
       val models = lastIndexes.flatMap(_.keys).toSet
 
-      require(lastIndexes.forall(partition => partition.isEmpty || models.forall(partition.isDefinedAt)),
-        "scoreAndLabelsByModel doesn't have uniform `keySet`s")
+//      require(lastIndexes.forall(partition => partition.isEmpty || models.forall(partition.isDefinedAt)),
+//        "scoreAndLabelsByModel doesn't have uniform `keySet`s")
+
+      val totalRecords = models.map(model =>
+        lastIndexes.filter(_.nonEmpty).map(_.get(model).map(_ + 1).getOrElse(0L)).sum).toList match {
+        case totalRecords :: Nil =>
+          totalRecords
+        case totalRecords :: _ :: _ =>
+          logWarning("Total number of records for each model is not all equal.")
+          totalRecords
+      }
+
+      logInfo("Total records: " + totalRecords)
+
+//      val totalRecords = lastIndexes.filter(_.nonEmpty).map(_(models.head) + 1).sum
 
       lastIndexes.find(_.nonEmpty).map { aNonEmptyPartition =>
-        val totalRecords = lastIndexes.filter(_.nonEmpty).map(_(models.head) + 1).sum
-
         recordsPerBin.foreach(r => require(r < totalRecords, s"Cannot request $r records per bin as not enough " +
           s"records in total to make 2 bins: $totalRecords"))
 
         val numRecordsPerBin: Long = recordsPerBin.getOrElse(optimizeRecordsPerBin(totalRecords, bins.get))
 
-        logInfo("Total records: " + totalRecords)
+
         logInfo("Bins that will used: " + resultingBinNumber(numRecordsPerBin.toInt, totalRecords) +
           ", each with " + numRecordsPerBin + " records")
 
