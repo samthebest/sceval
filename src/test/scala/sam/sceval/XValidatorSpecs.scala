@@ -71,13 +71,9 @@ class XValidatorSpecs extends Specification with ScalaCheck with IntellijHighlig
         .toSeq, 4)
 
       XValidator(folds = 2, evalBins = Some(2)).evaluate(scoresAndLabelsByModel) must_=== Array(
-        BinaryConfusionMatrix(tp = 1, fp = 1, tn = 2, fn = 1) + BinaryConfusionMatrix(tp = 2, fp = 0, tn = 1, fn = 2),
-        BinaryConfusionMatrix(tp = 2, fp = 3, tn = 0, fn = 0) + BinaryConfusionMatrix(tp = 4, fp = 1, tn = 0, fn = 0)
+        BinaryConfusionMatrix(tp = 2, fp = 3, tn = 0, fn = 0) + BinaryConfusionMatrix(tp = 4, fp = 1, tn = 0, fn = 0),
+        BinaryConfusionMatrix(tp = 1, fp = 1, tn = 2, fn = 1) + BinaryConfusionMatrix(tp = 2, fp = 0, tn = 1, fn = 2)
       )
     }
-
-    // TODO Property based test to ensure they go largest to smallest (corresponds to lowest thresh to highest)
-    // Need this for both EvaluationPimps and XValidator
-
   }
 }

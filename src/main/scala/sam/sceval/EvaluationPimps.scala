@@ -78,7 +78,7 @@ object EvaluationPimps extends Logging {
                           bins: Option[Int] = Some(1000),
                           recordsPerBin: Option[Long] = None): RDD[(Model, Array[BinaryConfusionMatrix])] =
       binaryLabelCounts(cacheIntermediate, bins, recordsPerBin)
-      .mapValues(blcs => blcs.map(BinaryConfusionMatrix(_, blcs.last)))
+      .mapValues(blcs => blcs.map(BinaryConfusionMatrix(_, blcs.head)))
 
     def binaryLabelCounts(cacheIntermediate: Option[StorageLevel] = Some(MEMORY_ONLY),
                           bins: Option[Int] = Some(1000),
@@ -121,12 +121,7 @@ object EvaluationPimps extends Logging {
                                       lastIndexes: Array[Map[Model, Long]],
                                       recordsPerBin: Option[Long],
                                       bins: Option[Int]): Option[RDD[(Model, Boolean, Int)]] = {
-      val models = lastIndexes.flatMap(_.keys).toSet
-
-//      require(lastIndexes.forall(partition => partition.isEmpty || models.forall(partition.isDefinedAt)),
-//        "scoreAndLabelsByModel doesn't have uniform `keySet`s")
-
-      val totalRecords = models.map(model =>
+      val totalRecords = lastIndexes.flatMap(_.keys).toSet.map((model: Model) =>
         lastIndexes.filter(_.nonEmpty).map(_.get(model).map(_ + 1).getOrElse(0L)).sum).toList match {
         case totalRecords :: Nil =>
           totalRecords
@@ -137,14 +132,11 @@ object EvaluationPimps extends Logging {
 
       logInfo("Total records: " + totalRecords)
 
-//      val totalRecords = lastIndexes.filter(_.nonEmpty).map(_(models.head) + 1).sum
-
       lastIndexes.find(_.nonEmpty).map { aNonEmptyPartition =>
         recordsPerBin.foreach(r => require(r < totalRecords, s"Cannot request $r records per bin as not enough " +
           s"records in total to make 2 bins: $totalRecords"))
 
         val numRecordsPerBin: Long = recordsPerBin.getOrElse(optimizeRecordsPerBin(totalRecords, bins.get))
-
 
         logInfo("Bins that will used: " + resultingBinNumber(numRecordsPerBin.toInt, totalRecords) +
           ", each with " + numRecordsPerBin + " records")
@@ -173,7 +165,7 @@ object EvaluationPimps extends Logging {
         case ((model, bin), count) => (model, (bin, count))
       }
       .groupByKey()
-      .mapValues(_.toArray.sortBy(-_._1).map(_._2).scan(BinaryLabelCount())(_ + _).drop(1))
+      .mapValues(_.toArray.sortBy(-_._1).map(_._2).scan(BinaryLabelCount())(_ + _).drop(1).reverse)
 
     def indexInPartition[Model: ClassTag](scoreAndLabelsByModel: RDD[Map[Model, (Double, Boolean)]]): Indexed[Model] =
       scoreAndLabelsByModel.flatMap(identity).map {
@@ -206,7 +198,7 @@ object EvaluationPimps extends Logging {
 
   implicit class PimpedConfusionsSeq(confusions: Seq[BinaryConfusionMatrix]) {
     def roc: Seq[(Double, Double)] =
-      (0.0, 0.0) +: confusions.map(bcm => (bcm.falsePositiveRate, bcm.recall)) :+ (1.0, 1.0)
+      (0.0, 0.0) +: confusions.map(bcm => (bcm.falsePositiveRate, bcm.recall)) :+(1.0, 1.0)
 
     def precisionByVolume: Seq[(Double, Double)] = confusions.map(bcm => (bcm.volume, bcm.precision))
     def recallByVolume: Seq[(Double, Double)] = confusions.map(bcm => (bcm.volume, bcm.recall))
