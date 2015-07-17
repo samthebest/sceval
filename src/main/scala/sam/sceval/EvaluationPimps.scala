@@ -54,7 +54,7 @@ object EvaluationPimps extends Logging {
 
   // TODO Another version where the number of models is huge, but there is a long (0.0, Boolean) tail which can be
   // preaggregated to then allow for a groupBy(model)
-  // is small - useful for evaluating matching algorithms or tiny-cluster clustering problems
+  // useful for evaluating matching algorithms or tiny-cluster clustering problems
 
   /** Model should extend AnyVal or Equals so that it makes sense to use this as a key.
     * Should scale reasonably well in the number of models. We return RDD because BCMs are computed in parallel for
@@ -186,7 +186,7 @@ object EvaluationPimps extends Logging {
           case (score, (model, label)) => {
             val index = modelToCount.getOrElse(model, 0L)
             modelToCount += (model -> (index + 1))
-            // We have to keep the score here to keep Spark's RDD internally consistent
+            // TODO Determine if keeping the score here is actually necessary - I don't think it makes sense
             (score, (model, label, index))
           }
         }
