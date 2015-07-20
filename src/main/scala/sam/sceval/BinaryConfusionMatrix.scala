@@ -39,10 +39,10 @@ case class BinaryConfusionMatrix(tp: Long, fp: Long, tn: Long, fn: Long) {
 
   def volume: Double = predictedPositives.toDouble / total
 
-  /** The probability the label is actually True given we predict True */
+  /** The 'probability' the label is actually True given we predict True */
   def precision: Double = if (predictedPositives == 0) 1.0 else tp.toDouble / predictedPositives
 
-  /** The probability we will predict True given the label is actually True */
+  /** The 'probability' we will predict True given the label is actually True */
   def recall: Double = if (actualPositives == 0) 0.0 else tp.toDouble / actualPositives
 
   /** Actual probability of True */
@@ -65,7 +65,7 @@ case class BinaryConfusionMatrix(tp: Long, fp: Long, tn: Long, fn: Long) {
   def +(other: BinaryConfusionMatrix): BinaryConfusionMatrix =
     BinaryConfusionMatrix(other.tp + tp, other.fp + fp, other.tn + tn, other.fn + fn)
 
-  @deprecated("Don't use meaningless measures, use something that has a direct probabilistic meaning")
+  @deprecated("Don't use meaningless measures, use something that has a direct probabilistic meaning. See README.md")
   def f1Measure(beta: Double = 1.0): Double = {
     val beta2 = beta * beta
     if (precision + recall == 0) 0.0 else (1.0 + beta2) * (precision * recall) / (beta2 * precision + recall)

@@ -17,7 +17,6 @@ class XValidatorSpecs extends Specification with ScalaCheck with IntellijHighlig
   implicit val _: Arbitrary[Int] = Arbitrary(Gen.choose(1, 10))
 
   // TODO Dry this, write listOfNs method
-
   implicit val arbitraryListIntBool: Arbitrary[List[(Int, Boolean)]] = Arbitrary(Gen.frequency(
     (1, Gen.listOfN(1, arbitrary[(Int, Boolean)])),
     (1, Gen.listOfN(2, arbitrary[(Int, Boolean)])),
@@ -31,7 +30,6 @@ class XValidatorSpecs extends Specification with ScalaCheck with IntellijHighlig
   ))
 
   "XValidator" should {
-    // FIXME the List size needs to be limited other we get OOM problems
     "split into fold folds and are same size (with possible off by ones)" ! check(prop(
       (featuresAndLabels: List[(Int, Boolean)], partitions: Int) => {
         val trySplit = Try(xvalidator.split(sc.makeRDD(featuresAndLabels, partitions)))
@@ -46,11 +44,7 @@ class XValidatorSpecs extends Specification with ScalaCheck with IntellijHighlig
       }))
 
     "compute correct BinaryConfusionMatricies" in {
-      val xvalidator2Folds = XValidator(folds = 2, evalBins = Some(2))
-
-      // Comments left in to show which have been held out for each fold
-      // fold -> List[(exampleId, (score, label))]
-      val foldToExampleIDScoreAndLabel =
+      val scoresAndLabelsByModel: RDD[(Int, Double, Boolean)] = sc.makeRDD(
         Map(
           0 -> List(
             (0.0, false),
@@ -67,34 +61,17 @@ class XValidatorSpecs extends Specification with ScalaCheck with IntellijHighlig
 
             (0.9, true),
             (1.0, true)
-          ))
-
-//      val scoresAndLabelsByModel: RDD[Map[Int, (Double, Boolean)]] = sc.makeRDD(
-//        foldToExampleIDScoreAndLabel.flatMap {
-//          case (fold, examples) => examples.map {
-//            case (score, label) => Map(fold -> (score, label))
-//          }
-//        }
-//        .toSeq, 4)
-
-      val scoresAndLabelsByModel: RDD[(Int, Double, Boolean)] = sc.makeRDD(
-        foldToExampleIDScoreAndLabel.flatMap {
+          )).flatMap {
           case (fold, examples) => examples.map {
             case (score, label) => (fold, score, label)
           }
         }
-        .toSeq
-        , 4)
+        .toSeq, 4)
 
-      // 4 x data points
-      xvalidator2Folds.evaluate(scoresAndLabelsByModel) must_=== Array(
-        BinaryConfusionMatrix(tp = 1, fp = 1, tn = 2, fn = 1) + BinaryConfusionMatrix(tp = 2, fp = 0, tn = 1, fn = 2),
-          BinaryConfusionMatrix(tp = 2, fp = 3, tn = 0, fn = 0) + BinaryConfusionMatrix(tp = 4, fp = 1, tn = 0, fn = 0)
+      XValidator(folds = 2, evalBins = Some(2)).evaluate(scoresAndLabelsByModel) must_=== Array(
+        BinaryConfusionMatrix(tp = 2, fp = 3, tn = 0, fn = 0) + BinaryConfusionMatrix(tp = 4, fp = 1, tn = 0, fn = 0),
+        BinaryConfusionMatrix(tp = 1, fp = 1, tn = 2, fn = 1) + BinaryConfusionMatrix(tp = 2, fp = 0, tn = 1, fn = 2)
       )
     }
-
-    // TODO Property based test to ensure they go largest to smallest (corresponds to lowest thresh to highest)
-    // Need this for both EvaluationPimps and XValidator
-
   }
 }

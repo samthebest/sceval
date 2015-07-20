@@ -54,7 +54,6 @@ class BinUtilsSpecs extends Specification with ScalaCheck {
 
     implicit val _: Arbitrary[Int] = Arbitrary(Gen.choose(1, 20))
 
-    // TODO Confirm this test fails by writting a binner that just randomly bins, since test was written after the fact.
     "binner always evenly bins except for last bin, and each bin correct size" ! check(prop(
       (partitionLastIndexes: List[Map[Int, Int]], recordsPerBin: Int) => {
         val binner = binnerFac[Int](partitionLastIndexes.map(_.mapValues(_.toLong)).toArray, recordsPerBin)
@@ -65,10 +64,9 @@ class BinUtilsSpecs extends Specification with ScalaCheck {
           index <- indexes.toList
         } yield (model, binner(model, index, partition)))
         .groupBy(_._1).forall(_._2.map(_._2).groupBy(identity).mapValues(_.size).toList.sortBy(-_._1) match {
-          case (_, lastBinCount) :: rest => {
+          case (_, lastBinCount) :: rest =>
             val commonBinCounts = rest.map(_._2).distinct
             commonBinCounts.size <= 1 && (lastBinCount +: commonBinCounts).forall(_ <= recordsPerBin)
-          }
         }) must beTrue
       }))
   }

@@ -11,6 +11,12 @@ import scala.reflect.ClassTag
 
 // TODO (long term) Abstract out the RDD part so we can have a List version and a ParIterable version.
 // I.e. introduce a DistributedDataset type-class (or DD)
+
+// TODO Another version where the number of models is huge, but there is a long (0.0, Boolean) tail which can be
+// preaggregated to then allow for a reduceBy(model).
+// Will be useful for evaluating matching algorithms or tiny-cluster clustering problems
+
+
 object EvaluationPimps extends Logging {
   implicit class PimpedScoresAndLabelsRDD(scoreAndLabels: RDD[(Double, Boolean)]) {
 
@@ -52,10 +58,6 @@ object EvaluationPimps extends Logging {
     }
   }
 
-  // TODO Another version where the number of models is huge, but there is a long (0.0, Boolean) tail which can be
-  // preaggregated to then allow for a reduceBy(model).
-  // Will be useful for evaluating matching algorithms or tiny-cluster clustering problems
-
   /** Model should extend AnyVal or Equals so that it makes sense to use this as a key.
     * Should scale reasonably well in the number of models. We return RDD because BCMs are computed in parallel for
     * each model, which ought to be a bit faster than a local computation for a large number of models.
@@ -69,7 +71,6 @@ object EvaluationPimps extends Logging {
     * @param scoreAndLabelsByModel an RDD of Maps from the `Model` to a score-label pair.  It's assumed that for each
     *                              `Model` the total number of score-label pairs in the RDD is equal, if not then
     *                              the behaviour is unspecified and a warning is printed. */
-  // Doesn't mega scale in the number of bins that well (but neither did older implementation)
   implicit class PimpedModelOutputsRDD[Model: ClassTag](scoreAndLabelsByModel: RDD[Map[Model, (Double, Boolean)]]) {
 
     import PimpedModelOutputsRDD._
@@ -78,7 +79,7 @@ object EvaluationPimps extends Logging {
                           bins: Option[Int] = Some(1000),
                           recordsPerBin: Option[Long] = None): RDD[(Model, Array[BinaryConfusionMatrix])] =
       binaryLabelCounts(cacheIntermediate, bins, recordsPerBin)
-      .mapValues(blcs => blcs.map(BinaryConfusionMatrix(_, blcs.last)))
+      .mapValues(blcs => blcs.map(BinaryConfusionMatrix(_, blcs.head)))
 
     def binaryLabelCounts(cacheIntermediate: Option[StorageLevel] = Some(MEMORY_ONLY),
                           bins: Option[Int] = Some(1000),
@@ -99,16 +100,16 @@ object EvaluationPimps extends Logging {
       }
       .getOrElse(scoreAndLabelsByModel.context.makeRDD[(Model, Array[BinaryLabelCount])](Nil))
     }
+  }
 
-    def checkArgs(bins: Option[Int] = Some(1000), recordsPerBin: Option[Long] = None): Unit = {
-      require(bins.isDefined ^ recordsPerBin.isDefined, "Only one of bins or recordsPerBin can be specified")
-      bins.foreach { b =>
-        require(b > 0, "Doesn't make sense to request zero or less bins: " + b)
-        require(b != 1, "Requesting 1 bin doesn't make sense. If you want the total use 2 bins and access " +
-          "totalCount in BinaryLabelCounts")
-      }
-      recordsPerBin.foreach(r => require(r >= 0, "Doesn't make sense to request negative records per bin: " + r))
+  def checkArgs(bins: Option[Int] = Some(1000), recordsPerBin: Option[Long] = None): Unit = {
+    require(bins.isDefined ^ recordsPerBin.isDefined, "Only one of bins or recordsPerBin can be specified")
+    bins.foreach { b =>
+      require(b > 0, "Doesn't make sense to request zero or less bins: " + b)
+      require(b != 1, "Requesting 1 bin doesn't make sense. If you want the total use 2 bins and access " +
+        "totalCount in BinaryLabelCounts")
     }
+    recordsPerBin.foreach(r => require(r >= 0, "Doesn't make sense to request negative records per bin: " + r))
   }
 
   /** Companion object for `PimpedModelOutputsRDD` and methods only likely to be useful in this class.  Methods not
@@ -121,12 +122,7 @@ object EvaluationPimps extends Logging {
                                       lastIndexes: Array[Map[Model, Long]],
                                       recordsPerBin: Option[Long],
                                       bins: Option[Int]): Option[RDD[(Model, Boolean, Int)]] = {
-      val models = lastIndexes.flatMap(_.keys).toSet
-
-//      require(lastIndexes.forall(partition => partition.isEmpty || models.forall(partition.isDefinedAt)),
-//        "scoreAndLabelsByModel doesn't have uniform `keySet`s")
-
-      val totalRecords = models.map(model =>
+      val totalRecords = lastIndexes.flatMap(_.keys).toSet.map((model: Model) =>
         lastIndexes.filter(_.nonEmpty).map(_.get(model).map(_ + 1).getOrElse(0L)).sum).toList match {
         case totalRecords :: Nil =>
           totalRecords
@@ -137,14 +133,11 @@ object EvaluationPimps extends Logging {
 
       logInfo("Total records: " + totalRecords)
 
-//      val totalRecords = lastIndexes.filter(_.nonEmpty).map(_(models.head) + 1).sum
-
       lastIndexes.find(_.nonEmpty).map { aNonEmptyPartition =>
         recordsPerBin.foreach(r => require(r < totalRecords, s"Cannot request $r records per bin as not enough " +
           s"records in total to make 2 bins: $totalRecords"))
 
         val numRecordsPerBin: Long = recordsPerBin.getOrElse(optimizeRecordsPerBin(totalRecords, bins.get))
-
 
         logInfo("Bins that will used: " + resultingBinNumber(numRecordsPerBin.toInt, totalRecords) +
           ", each with " + numRecordsPerBin + " records")
@@ -173,7 +166,7 @@ object EvaluationPimps extends Logging {
         case ((model, bin), count) => (model, (bin, count))
       }
       .groupByKey()
-      .mapValues(_.toArray.sortBy(-_._1).map(_._2).scan(BinaryLabelCount())(_ + _).drop(1))
+      .mapValues(_.toArray.sortBy(-_._1).map(_._2).scan(BinaryLabelCount())(_ + _).drop(1).reverse)
 
     def indexInPartition[Model: ClassTag](scoreAndLabelsByModel: RDD[Map[Model, (Double, Boolean)]]): Indexed[Model] =
       scoreAndLabelsByModel.flatMap(identity).map {
@@ -186,7 +179,7 @@ object EvaluationPimps extends Logging {
           case (score, (model, label)) => {
             val index = modelToCount.getOrElse(model, 0L)
             modelToCount += (model -> (index + 1))
-            // We have to keep the score here to keep Spark's RDD internally consistent
+            // TODO Determine if keeping the score here is actually necessary - I don't think it makes sense
             (score, (model, label, index))
           }
         }
@@ -206,7 +199,7 @@ object EvaluationPimps extends Logging {
 
   implicit class PimpedConfusionsSeq(confusions: Seq[BinaryConfusionMatrix]) {
     def roc: Seq[(Double, Double)] =
-      (0.0, 0.0) +: confusions.map(bcm => (bcm.falsePositiveRate, bcm.recall)) :+ (1.0, 1.0)
+      (0.0, 0.0) +: confusions.map(bcm => (bcm.falsePositiveRate, bcm.recall)) :+(1.0, 1.0)
 
     def precisionByVolume: Seq[(Double, Double)] = confusions.map(bcm => (bcm.volume, bcm.precision))
     def recallByVolume: Seq[(Double, Double)] = confusions.map(bcm => (bcm.volume, bcm.recall))
@@ -235,7 +228,7 @@ object EvaluationPimps extends Logging {
     def areaUnderPR(): Double = AreaUnderCurve(precisionRecallCurve())
     def precisionByThreshold(): RDD[(Double, Double)] = confusions.mapValues(_.precision)
     def recallByThreshold(): RDD[(Double, Double)] = confusions.mapValues(_.recall)
-    @deprecated("Don't use meaningless measures, use something that has a direct probabilistic meaning")
+    @deprecated("Don't use meaningless measures, use something that has a direct probabilistic meaning. See README.md")
     def f1MeasureByThreshold(beta: Double = 1.0): RDD[(Double, Double)] = confusions.mapValues(_.f1Measure(beta))
   }
 
@@ -246,7 +239,7 @@ object EvaluationPimps extends Logging {
     def partitionwiseCumulativeCounts(binnedCounts: ScoresAndCounts): Array[MutableBinaryLabelCount] =
       binnedCounts.values.mapPartitions { partition =>
         val agg = MutableBinaryLabelCount()
-        partition.foreach(agg += _)
+        partition.foreach(agg +=)
         Iterator(agg)
       }
       .collect()

@@ -4,6 +4,7 @@ import org.apache.spark.mllib.rdd.RDDFunctions._
 import org.apache.spark.rdd.RDD
 
 /** Computes the area under the curve (AUC) using the trapezoidal rule. */
+@deprecated("Don't use meaningless measures, use something that has a direct probabilistic meaning. See README.md")
 object AreaUnderCurve {
   def trapezoid(points: Seq[(Double, Double)]): Double = {
     val (x1, x2) :: (y1, y2) :: Nil = points

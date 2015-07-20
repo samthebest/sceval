@@ -2,12 +2,8 @@ package sam.sceval
 
 import org.specs2.mutable.Specification
 
-class BinaryConfusionMatrixSpecs extends Specification {
-  val tps = 20
-  val fps = 180
-  val tns = 1820
-  val fns = 10
-  val all = tps + fps + tns + fns
+class BinaryConfusionMatrixSpecs extends Specification with RoughlyUtil {
+  val confusionMatrix = BinaryConfusionMatrix(tp = 20, fp = 180, tn = 1820, fn = 10)
 
   // Calculated manually
   val precision = 0.1
@@ -20,35 +16,33 @@ class BinaryConfusionMatrixSpecs extends Specification {
   val accuracy = 0.9064039408866995
   val uplift = 6.766666666666667
 
-  val confusionMatrix = BinaryConfusionMatrix(tps, fps, tns, fns)
-
   "ConfusionMatrix class" should {
     "compute correct precision" in {
-      confusionMatrix.precision must_== precision
+      confusionMatrix.precision ~= precision
     }
     "compute correct recall" in {
-      confusionMatrix.recall must_== recall
+      confusionMatrix.recall ~= recall
     }
     "compute correct prior" in {
-      confusionMatrix.prior must_== prior
+      confusionMatrix.prior ~= prior
     }
     "compute correct specificity" in {
-      confusionMatrix.specificity must_== specificity
+      confusionMatrix.specificity ~= specificity
     }
     "compute correct negative predictive value" in {
-      confusionMatrix.negativePredictiveValue must_== negativePredictiveValue
+      confusionMatrix.negativePredictiveValue ~= negativePredictiveValue
     }
     "compute correct fallout" in {
-      confusionMatrix.fallOut must_== fallout
+      confusionMatrix.fallOut ~= fallout
     }
     "compute correct false discovery rate" in {
-      confusionMatrix.falseDiscoveryRate must_== falseDiscoveryRate
+      confusionMatrix.falseDiscoveryRate ~= falseDiscoveryRate
     }
     "compute correct accuracy" in {
-      confusionMatrix.accuracy must_== accuracy
+      confusionMatrix.accuracy ~= accuracy
     }
     "compute correct uplift" in {
-      confusionMatrix.uplift must_== uplift
+      confusionMatrix.uplift ~= uplift
     }
   }
 }

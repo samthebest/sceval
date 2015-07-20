@@ -1,18 +1,12 @@
 package sam.sceval
 
 import EvaluationPimps._
-import org.specs2.matcher.MatchResult
 import org.specs2.mutable.Specification
 
-class PimpedScoresAndConfusionsRDDSpecs extends Specification {
+class PimpedScoresAndConfusionsRDDSpecs extends Specification with RoughlyUtil {
   sequential
+
   val sc = StaticSparkContext.staticSc
-
-  val epsilon = 0.00001
-
-  implicit class RoughlyDouble(d: Double) {
-    def ~=(other: Double): MatchResult[Double] = d must beCloseTo(other, epsilon)
-  }
 
   def sequencesMatch(left: Seq[Double], right: Seq[Double]) = left.zip(right).forall {
     case (l, r) => l ~= r
@@ -78,6 +72,7 @@ class PimpedScoresAndConfusionsRDDSpecs extends Specification {
     }
     val recalls = numTruePositives.map(t => t.toDouble / 4)
     val pr = recalls.zip(precisions)
+
     validateMetrics(
       scoreAndLabels = Seq((0.1, false), (0.1, true), (0.4, false), (0.6, false), (0.6, true), (0.6, true), (0.8, true)),
       expectedThresholds = Seq(0.8, 0.6, 0.4, 0.1),
