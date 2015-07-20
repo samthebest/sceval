@@ -269,4 +269,62 @@ object EvaluationPimps extends Logging {
         }
       }
   }
+
+  case class ModelExamples(var nonZero: List[(Double, Boolean)], var zerosTrue: Long, var zerosFalse: Long) {
+    def +=(example: (Double, Boolean)): ModelExamples = {
+      if (example._1 == 0.0) if (example._2) zerosTrue += 1 else zerosFalse +=1
+      else nonZero +:= example
+      this
+    }
+
+    def +=(other: ModelExamples): ModelExamples = {
+      nonZero ++ other.nonZero
+      zerosTrue += other.zerosTrue
+      zerosFalse += other.zerosFalse
+      this
+    }
+
+    def size: Long = nonZero.size + zerosTrue + zerosFalse
+  }
+
+  // This particular approach won't work if head examples is also large.  In fact if we make this assumption, there is
+  // little point in binning, we might as well use every point. But then when we combine all the binary confusion
+  // matricies, we need a way to bulk out the examples all up to the same size.  We have another combineByKey
+  // where we only have a single key, that stores the Max size of the head end, and the total records
+  // if we find an element with the wrong number of total records we throw and exception.
+
+  // TODO Very easy to test, just need property based test is same as the other implementation
+  // Might want different test for different size examples
+  // TODO Another version where the number of models is huge & the number of examples
+  // but there is a long (0.0, Boolean) tail which can be
+  // preaggregated to then allow for a reduceBy(model)
+  // useful for evaluating matching algorithms or tiny-cluster clustering problems
+  implicit class PimpedManyModelsRDD[Model: ClassTag](scoreAndLabelsByModel: RDD[(Model, (Double, Boolean))]) {
+    def confusionsByModel(cacheIntermediate: Option[StorageLevel] = Some(MEMORY_ONLY),
+                          bins: Option[Int] = Some(1000),
+                          recordsPerBin: Option[Long] = None): RDD[(Model, Array[BinaryConfusionMatrix])] = {
+      checkArgs(bins, recordsPerBin)
+
+      scoreAndLabelsByModel.combineByKey(
+        createCombiner = ModelExamples(Nil, 0, 0) += (_: (Double, Boolean)),
+        mergeValue = (_: ModelExamples) += (_: (Double, Boolean)),
+        mergeCombiners = (_: ModelExamples) += (_: ModelExamples)
+      ) // TODO split this out with another pimp - so people can enter here
+      .map {
+        case (model, examples) => {
+          val binSize = recordsPerBin.getOrElse(BinUtils.optimizeRecordsPerBin(examples.size, bins.get))
+          examples.
+        }
+      }
+
+      BinUtils.optimizeRecordsPerBin()
+      // The binner here is much simpler, furthermore we need not assume uniform sizes
+      // we will still need to use the optimize bins function
+
+      // We have to rem
+
+      ???
+    }
+  }
+
 }
