@@ -69,6 +69,26 @@ The API is somewhat more functional where we use static methods and the Pimp my 
 
 Using ScEval one can similtaneously evaluate multiple models. For example, suppose we are an advertiser with 100 tags, we can similtanesouly evaluate all 100 models associated with those tags, that is the number of spark stages is fixed.  We need not run the evaluation 100 times in sequence producing 100 times as many spark stages/jobs.  The other obvious use case is k-fold x-validation.
 
+### Deprecation of AUC & F1-Score (and no MCC (Mathews Correlation Coefficient))
+
+A bit like attributing greater semantics to a model score than it actually has, an equally common mistake is attributing greater semantics to the rather odd magic numbers seen in Data Science, that is AUC, F1-score & MCC.  The motivation for such numbers is obvious, given a difficult to comprehend set of performance measures on a model how do we compare models to ultimately decide which is the "best".  Well the correct answer is you don't, you use your use case with perhaps a probabilistic measure to decide. Different use cases will warrent different thresholds and different measures, for example recall may be important for medical diagnosis, while precision may be important for fraud detection.  In many circumstance, like marketting and advertising it's possible to go straight to expected profit - now this really *does have meaning*. 
+
+So when writting an evaluation API I feel responsible to include some warning regarding the mathematical validity of any methods that lack foundation.
+
+#### AUC
+
+AUC's only probabilistic meaning is it's the probability that a classifier will rank a randomly chosen positive instance higher than a randomly chosen negative one (assuming 'positive' ranks higher than 'negative').
+
+The fundemental issue with AUC is that a threshold has not been chosen and nearly all use cases of Machine Learning require such a process to *make a decision*.  End "users" of Machine Learning models rarely see a "rank", and if they do, they certainly do not see the rank of every single possible example.  The *action* is often at the upper end of a model's ranks while AUC takes into account the whole range.  Users do not want to see a part of an advert*, perhaps greyed out according to it's rank, nor do they care about ranks of items on the 10th page of a search.  A patient doesn't want to know how they are ranked in terms of getting cancer, they want to know if another test is needed - or the probability they have cancer.
+
+There are also some easily googlable papers around AUC instability and such and such, but really just some common sense and basic logic is sufficient to disregard this measure as a **fashion** not something of real meaning.  It is used because other people use it, not because it actually means anything.
+
+*Well, most don't want to see any adverts, but let's ignore that detail.
+
+#### F1-Score & MCC
+
+These measures (as with many correlation coefficients) only have Probabilistic or Information Theoretic meaning if we assume we have a can opener, I mean, if we assume some underlying distributions in our data.  The motivation being to combine precision and recall, or a confusion, into a single number.  This seems to be an unheathly obsession of the human race.  Perhaps we are too stupid to cope with two or more numbers, so much so we even try to define stupidity (or intelligence) in terms of a single number (IQ).  Please let's try to keep Data Science a Science and accept that the world is not as simple as we would like it to be. We must design a measure of performance based on each individual use case, even if that means we actually have to think every so often.
+
 ### Terminology
 
 (As the reader ought to be able to tell) I'm a pure mathematician at heart, so the use of the term "metric" has been removed - the use of the term should reserved to mean a "distance".
