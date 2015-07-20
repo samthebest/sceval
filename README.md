@@ -99,6 +99,8 @@ Specs2 is used over ScalaTest, this is really out of familiarity, especially whe
 
 SBT is used over Maven, no reason other than convention and familarity.
 
+Property based tests are used, which can make test times slower.  It may be desirable to have environment dependent configurations so that larger numbers of permutations are attempted inside a CI pipeline rather than locally.
+
 ## Contributing
 
 If you wish to contribute please follow https://github.com/samthebest/dump/blob/master/convention-guidlines.md
