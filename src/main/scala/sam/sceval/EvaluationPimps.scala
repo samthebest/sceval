@@ -53,8 +53,8 @@ object EvaluationPimps extends Logging {
   }
 
   // TODO Another version where the number of models is huge, but there is a long (0.0, Boolean) tail which can be
-  // preaggregated to then allow for a groupBy(model)
-  // is small - useful for evaluating matching algorithms or tiny-cluster clustering problems
+  // preaggregated to then allow for a reduceBy(model).
+  // Will be useful for evaluating matching algorithms or tiny-cluster clustering problems
 
   /** Model should extend AnyVal or Equals so that it makes sense to use this as a key.
     * Should scale reasonably well in the number of models. We return RDD because BCMs are computed in parallel for
@@ -62,7 +62,7 @@ object EvaluationPimps extends Logging {
     * This will ensure all bins except potentially the last bin are of equal size, consequently certain `bins` arguments
     * may be impossible to respect, in such cases the bin number that is closest to the desired bins is chosen.
     *
-    * The last element of each Array[BinaryLabelCount] from `binaryLabelCounts` will be the total.
+    * The first element of each Array[BinaryLabelCount] from `binaryLabelCounts` will be the total.
     *
     * This algorithm costs 4 stages and causes a job that runs the first 2.
     *
