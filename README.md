@@ -59,7 +59,7 @@ Since most models in Machine Learning tend to be defined in terms of mathematica
 
 One could argue that some of the above are unimportant since with sufficient examples these things average themselves out, and since it's assumed we are in a Big Data context worrying about these things is unnecessary.  This reasoning I fundementally disagree with, I would argue that when performing any experiment one should aim to minimize the number of assumptions and minimize the introduction of noise by the design of the experiment.  In this case the "design" of the experiment is the logic of the code, so the logic of the code should aim to minimize the introduction of noise.
 
-One could argue that by repeating the experiement multiple times we ought to be able to observe some convergence or rely upon our measures of performance if they do not seem to vary.  Indeed this is true, but in order to reach "statistical confidence" the experiment would need to be run 
+One could argue that by repeating the experiement multiple times we ought to be able to observe some convergence or rely upon our measures of performance if they do not seem to vary.  Indeed this is true, but in order to reach "statistical confidence" the experiment may need run many times, and since we are in a Big Data context, this is highly undesirable.
 
 ### API Change
 
