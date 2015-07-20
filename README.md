@@ -20,7 +20,7 @@ The unit tests are written in specs2.
 
 ## Why ScEval Over Native MLLib?
 
-### (More) Invariant Binning in the Number of Partitions
+### Invariant Binning in the Number of Partitions
 
 The original MLLib implementation would bin the dataset quite differently for different numbers of partitions.  This has the following negatives:
 
@@ -55,27 +55,29 @@ In summary thresholding by volume over score has the following benfits:
 
 Since most models in Machine Learning tend to be defined in terms of mathematical operations of real values, the model score is output as closest thing in computer science we have to real values - i.e. doubles.  It would be interesting, though unlikely to have many use-cases, to produce an implementation of an evaluation framework where the score type is a generic `T <: Equals : Ordering`, i.e. extends `Equals` and has an `Ordering` type-class. Then, and only then, the user can choose to threshold by value.
 
-### API Change
-
-The API is somewhat more functional where we use static methods and the Pimp my Library Pattern over OOP & encapsulation.
-
 ### Remark on Statistical Assumptions
 
-One could argue that some of the above are largely unimportant since given sufficient examples these things average themselves out, and since it's assumed we are in a Big Data context worrying about these things is unnecessary.  This reasoning I fundementally disagree with, I would argue that when performing any experiment one should aim to minimize the number of assumptions and minimize the introduction of noise by the design of the experiment.  In this case the "design" of the experiment is the logic of the code, so the logic of the code should aim to minimize the introduction of noise.
+One could argue that some of the above are unimportant since with sufficient examples these things average themselves out, and since it's assumed we are in a Big Data context worrying about these things is unnecessary.  This reasoning I fundementally disagree with, I would argue that when performing any experiment one should aim to minimize the number of assumptions and minimize the introduction of noise by the design of the experiment.  In this case the "design" of the experiment is the logic of the code, so the logic of the code should aim to minimize the introduction of noise.
 
-One could argue that by repeating the experiement multiple times we ought to be able to observe some convergence or rely upon our measures of performance.
+One could argue that by repeating the experiement multiple times we ought to be able to observe some convergence or rely upon our measures of performance if they do not seem to vary.  Indeed this is true, but in order to reach "statistical confidence" the experiment would need to be run 
 
+### API Change
 
-### Pedantic Mathematical Terminology
+The API is somewhat more functional where we use static methods and the Pimp my Library Pattern over OOP & encapsulation.  Furthermore the code style is a little more functional and less imperative.
 
-I'm a pure mathematician at heart and I prefer to avoid the term "metric" to mean anything other than a distance.
+### Similtaneous Multi-Model Evaluation Support
+
+Using ScEval one can similtaneously evaluate multiple models. For example, suppose we are an advertiser with 100 tags, we can similtanesouly evaluate all 100 models associated with those tags, that is the number of spark stages is fixed.  We need not run the evaluation 100 times in sequence producing 100 times as many spark stages/jobs.  The other obvious use case is k-fold x-validation.
+
+### Terminology
+
+(As the reader ought to be able to tell) I'm a pure mathematician at heart, so the use of the term "metric" has been removed - the use of the term should reserved to mean a "distance".
 
 ### Other Differences
 
-Specs2 over 
+Specs2 is used over ScalaTest, this is really out of familiarity, especially when used in conjunction with ScalaCheck.  If merged into MLLib, I imagine the tests would need to be refactored to use ScalaTest since most devmasters don't like multiple frameworks in a single project.
 
-SBT
-
+SBT is used over Maven, no reason other than convention and familarity.
 
 ## Contributing
 
