@@ -6,8 +6,11 @@ object BinUtils {
   def binnerFac[Model](partitionLastIndexes: Array[Map[Model, Long]],
                        numRecodsPerBin: Long): (Model, Long, Int) => Int = {
     val modelToBinStats: Map[Model, Array[BinStats]] =
+        // GMARIO: what's wrong with map and reduce instead of fold?
       partitionLastIndexes.flatMap(_.keySet).toSet.foldLeft(Map.empty[Model, List[BinStats]])((modelToStats, model) =>
         partitionLastIndexes.foldLeft(modelToStats)((modelToStats, partition) =>
+          // GMARIO: you are doing getOrElse and then match, you could do get and match the option directly.
+          // or maybe use modelToStats.withDefaultValue(List(BinStats()))
           modelToStats + (model -> ((partition.get(model), modelToStats.getOrElse(model, List(BinStats()))) match {
             case (Some(lastIndex), cum@(BinStats(startBinNumber, offset) :: _)) =>
               val newOffset = (lastIndex + 1 + offset) % numRecodsPerBin
@@ -16,6 +19,7 @@ object BinUtils {
             case (None, cum@(binStats :: _)) => binStats +: cum
           })))
       )
+      // GMARIO: This is an hack to workaround serialization issues I guess, it should have a comment explaining it.
       .mapValues(_.reverse.toArray).map(identity)
 
     (model: Model, index: Long, partitionIndex: Int) => {

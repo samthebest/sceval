@@ -35,6 +35,7 @@ case class XValidator(folds: Int = 10,
     .confusionsByModel(evalCacheIntermediate, evalBins, evalRecordsPerBin).map(_._2)
     .flatMap(_.zipWithIndex.map(_.swap)).reduceByKey(_ + _).collect().sortBy(_._1).map(_._2)
 
+  // GMARIO: no usage and/or unit tests for this method
   def xval[Features](trainAndScoreByModel: RDD[(Int, Features, Boolean)] => RDD[(Int, Double, Boolean)],
                      featuresAndLabel: RDD[(Features, Boolean)]): Array[BinaryConfusionMatrix] =
     evaluate(trainAndScoreByModel(split(featuresAndLabel)))

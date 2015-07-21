@@ -11,14 +11,9 @@ object AreaUnderCurve {
     (y1 - x1) * (y2 + x2) / 2.0
   }
 
-  def apply(curve: RDD[(Double, Double)]): Double = curve.sliding(2).aggregate(0.0)(
-    seqOp = (auc: Double, points: Array[(Double, Double)]) => auc + trapezoid(points.toList),
-    combOp = _ + _
-  )
+  def apply(curve: RDD[(Double, Double)]): Double =
+    curve.sliding(2).map(points => trapezoid(points.toList)).reduce(_ + _)
 
   def apply(curve: Iterable[(Double, Double)]): Double =
-    curve.toIterator.sliding(2).withPartial(false).aggregate(0.0)(
-      seqop = (auc: Double, points: Seq[(Double, Double)]) => auc + trapezoid(points),
-      combop = _ + _
-    )
+    curve.toIterator.sliding(2).withPartial(false).map(trapezoid).sum
 }

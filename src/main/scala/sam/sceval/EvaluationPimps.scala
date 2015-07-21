@@ -16,6 +16,9 @@ import scala.reflect.ClassTag
 // preaggregated to then allow for a reduceBy(model).
 // Will be useful for evaluating matching algorithms or tiny-cluster clustering problems
 
+// GMARIO: I think pimps should not contain complex logic. It should rather go into some Utils and just call it from
+// the pimp. Pimp should be the bridge to add methods to classes which, unless trivial, should be defined somewhere else.
+// You ought to be able to test this logic without have to wrap into this pattern if you do not want to.
 
 object EvaluationPimps extends Logging {
   implicit class PimpedScoresAndLabelsRDD(scoreAndLabels: RDD[(Double, Boolean)]) {
@@ -81,6 +84,9 @@ object EvaluationPimps extends Logging {
       binaryLabelCounts(cacheIntermediate, bins, recordsPerBin)
       .mapValues(blcs => blcs.map(BinaryConfusionMatrix(_, blcs.head)))
 
+
+    // GMARIO: are the comments below regarding the number os stages relevant to the code?
+    // They should rather go into the README.
     def binaryLabelCounts(cacheIntermediate: Option[StorageLevel] = Some(MEMORY_ONLY),
                           bins: Option[Int] = Some(1000),
                           recordsPerBin: Option[Long] = None): RDD[(Model, Array[BinaryLabelCount])] = {
@@ -107,7 +113,7 @@ object EvaluationPimps extends Logging {
     bins.foreach { b =>
       require(b > 0, "Doesn't make sense to request zero or less bins: " + b)
       require(b != 1, "Requesting 1 bin doesn't make sense. If you want the total use 2 bins and access " +
-        "totalCount in BinaryLabelCounts")
+       "totalCount in BinaryLabelCounts")
     }
     recordsPerBin.foreach(r => require(r >= 0, "Doesn't make sense to request negative records per bin: " + r))
   }
@@ -123,7 +129,7 @@ object EvaluationPimps extends Logging {
                                       recordsPerBin: Option[Long],
                                       bins: Option[Int]): Option[RDD[(Model, Boolean, Int)]] = {
       val totalRecords = lastIndexes.flatMap(_.keys).toSet.map((model: Model) =>
-        lastIndexes.filter(_.nonEmpty).map(_.get(model).map(_ + 1).getOrElse(0L)).sum).toList match {
+        lastIndexes.filter(_.nonEmpty).flatMap(_.get(model).map(_ + 1)).sum).toList match {
         case totalRecords :: Nil =>
           totalRecords
         case totalRecords :: _ :: _ =>
@@ -135,12 +141,12 @@ object EvaluationPimps extends Logging {
 
       lastIndexes.find(_.nonEmpty).map { aNonEmptyPartition =>
         recordsPerBin.foreach(r => require(r < totalRecords, s"Cannot request $r records per bin as not enough " +
-          s"records in total to make 2 bins: $totalRecords"))
+         s"records in total to make 2 bins: $totalRecords"))
 
         val numRecordsPerBin: Long = recordsPerBin.getOrElse(optimizeRecordsPerBin(totalRecords, bins.get))
 
         logInfo("Bins that will used: " + resultingBinNumber(numRecordsPerBin.toInt, totalRecords) +
-          ", each with " + numRecordsPerBin + " records")
+         ", each with " + numRecordsPerBin + " records")
 
         reindexWithBinner(indexed, binnerFac(lastIndexes, numRecordsPerBin))
       }
@@ -174,14 +180,12 @@ object EvaluationPimps extends Logging {
       }
       .sortByKey()
       .mapPartitions(partition => {
-        val modelToCount: mutable.Map[Model, Long] = mutable.Map()
+        val modelToCount: mutable.Map[Model, Long] = mutable.Map().withDefaultValue(0L)
         partition.map {
-          case (score, (model, label)) => {
-            val index = modelToCount.getOrElse(model, 0L)
-            modelToCount += (model -> (index + 1))
+          case (score, (model, label)) =>
+            modelToCount(model) += 1
             // TODO Determine if keeping the score here is actually necessary - I don't think it makes sense
-            (score, (model, label, index))
-          }
+            (score, (model, label, modelToCount(model)))
         }
       }, preservesPartitioning = true)
 
@@ -202,9 +206,13 @@ object EvaluationPimps extends Logging {
       (0.0, 0.0) +: confusions.map(bcm => (bcm.falsePositiveRate, bcm.recall)) :+(1.0, 1.0)
 
     def precisionByVolume: Seq[(Double, Double)] = confusions.map(bcm => (bcm.volume, bcm.precision))
+
     def recallByVolume: Seq[(Double, Double)] = confusions.map(bcm => (bcm.volume, bcm.recall))
+
     def precisionRecallCurve: Seq[(Double, Double)] = (0.0, 1.0) +: confusions.map(bcm => (bcm.recall, bcm.precision))
+
     def areaUnderROC: Double = AreaUnderCurve(roc)
+
     def areaUnderPR: Double = AreaUnderCurve(precisionRecallCurve)
   }
 
@@ -224,14 +232,20 @@ object EvaluationPimps extends Logging {
       .union(confusions.map(_._2).map(bcm => (bcm.recall, bcm.precision)))
 
     def thresholds(): RDD[Double] = confusions.map(_._1)
+
     def areaUnderROC(): Double = AreaUnderCurve(roc())
+
     def areaUnderPR(): Double = AreaUnderCurve(precisionRecallCurve())
+
     def precisionByThreshold(): RDD[(Double, Double)] = confusions.mapValues(_.precision)
+
     def recallByThreshold(): RDD[(Double, Double)] = confusions.mapValues(_.recall)
+
     @deprecated("Don't use meaningless measures, use something that has a direct probabilistic meaning. See README.md")
     def f1MeasureByThreshold(beta: Double = 1.0): RDD[(Double, Double)] = confusions.mapValues(_.f1Measure(beta))
   }
 
+  // GMARIO: Why inner objects?
   object PimpedScoresAndLabelsRDD {
     type ScoresAndCounts = RDD[(Double, MutableBinaryLabelCount)]
 
@@ -243,6 +257,9 @@ object EvaluationPimps extends Logging {
         Iterator(agg)
       }
       .collect()
+      // GMARIO: you are not reusing those objects, why need to clone them?
+      // Because you are cloning and then increasing its value you are "overloading" the GC same way you would using
+      // non mutable data structures. Can you replace it with BinaryLabelCount() ?
       .scanLeft(MutableBinaryLabelCount())(_.clone += _)
 
     def downSample(grouping: Int, sortedCounts: ScoresAndCounts): ScoresAndCounts =

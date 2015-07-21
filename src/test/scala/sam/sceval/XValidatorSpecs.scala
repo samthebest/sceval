@@ -16,30 +16,24 @@ class XValidatorSpecs extends Specification with ScalaCheck with IntellijHighlig
   val xvalidator = XValidator(folds = folds, evalBins = Some(4))
   implicit val _: Arbitrary[Int] = Arbitrary(Gen.choose(1, 10))
 
-  // TODO Dry this, write listOfNs method
-  implicit val arbitraryListIntBool: Arbitrary[List[(Int, Boolean)]] = Arbitrary(Gen.frequency(
-    (1, Gen.listOfN(1, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(2, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(4, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(8, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(10, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(15, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(20, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(50, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(100, arbitrary[(Int, Boolean)]))
-  ))
+  // GMARIO: try to add a pattern e.g. 1 to 128 by power of 2 so that we don't have to hardcode the values.
+  implicit val arbitraryListIntBool: Arbitrary[List[(Int, Boolean)]] =
+    Arbitrary(Gen.oneOf(List(1, 2, 4, 8, 10, 15, 20, 50, 100).map(Gen.listOfN(_, arbitrary[(Int, Boolean)]))): _*)
 
   "XValidator" should {
     "split into fold folds and are same size (with possible off by ones)" ! check(prop(
       (featuresAndLabels: List[(Int, Boolean)], partitions: Int) => {
         val trySplit = Try(xvalidator.split(sc.makeRDD(featuresAndLabels, partitions)))
+        // GMARIO: What if it fails? then our tests will be skipped.
+        // Also using Try means we are wrapping any kind of exception while we should explicitily declare the ones we
+        // expect to handle
         trySplit.isSuccess ==> {
           val foldSizeMap = trySplit.get.map(p => (p._1, 1)).reduceByKey(_ + _).collect().toMap
           foldSizeMap.size must_== folds
 
           val total = foldSizeMap.values.sum
           foldSizeMap.values.toSet must_===
-            (if (total % folds == 0) Set(total / folds) else Set(total / folds, total / folds + 1))
+          (if (total % folds == 0) Set(total / folds) else Set(total / folds, total / folds + 1))
         }
       }))
 
@@ -50,7 +44,6 @@ class XValidatorSpecs extends Specification with ScalaCheck with IntellijHighlig
             (0.0, false),
             (0.2, false),
             (0.4, true),
-
             (0.6, false),
             (0.8, true)
           ),
