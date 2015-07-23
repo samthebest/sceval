@@ -14,8 +14,7 @@ object BinUtils {
               BinStats((startBinNumber + (lastIndex + offset) / numRecodsPerBin).toInt + (if (newOffset == 0) 1 else 0),
                 newOffset.toInt) +: cum
             case (None, cum@(binStats :: _)) => binStats +: cum
-          })))
-      )
+          })))) // map identity is a hack around the non-serializability of the Map returned from mapValues
       .mapValues(_.reverse.toArray).map(identity)
 
     (model: Model, index: Long, partitionIndex: Int) => {

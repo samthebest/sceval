@@ -87,16 +87,14 @@ object EvaluationPimps extends Logging {
       checkArgs(bins, recordsPerBin)
 
       scoreAndLabelsByModel.take(1).headOption.flatMap { _ =>
-        // Costs 1 x spark stage
         val indexed: RDD[(Double, (Model, Boolean, Long))] = indexInPartition(scoreAndLabelsByModel)
 
         cacheIntermediate.foreach(indexed.persist)
 
-        // Costs 1 x spark stage and calls an action
         val lastIndexes: Array[Map[Model, Long]] = partitionLastIndexes(indexed)
 
         reindexByBin(indexed, lastIndexes, recordsPerBin, bins)
-        .map(computeBLCs) // Costs 2 x spark stages (a reduceByKey, then a groupByKey)
+        .map(computeBLCs)
       }
       .getOrElse(scoreAndLabelsByModel.context.makeRDD[(Model, Array[BinaryLabelCount])](Nil))
     }
@@ -122,14 +120,16 @@ object EvaluationPimps extends Logging {
                                       lastIndexes: Array[Map[Model, Long]],
                                       recordsPerBin: Option[Long],
                                       bins: Option[Int]): Option[RDD[(Model, Boolean, Int)]] = {
-      val totalRecords = lastIndexes.flatMap(_.keys).toSet.map((model: Model) =>
-        lastIndexes.filter(_.nonEmpty).map(_.get(model).map(_ + 1).getOrElse(0L)).sum).toList match {
-        case totalRecords :: Nil =>
-          totalRecords
-        case totalRecords :: _ :: _ =>
-          logWarning("Total number of records for each model is not all equal.")
-          totalRecords
-      }
+      val totalRecords =
+        lastIndexes.flatMap(_.keys).toSet.map((model: Model) =>
+          lastIndexes.filter(_.nonEmpty).flatMap(_.get(model).map(_ + 1)).sum)
+        .toList match {
+          case totalRecords :: Nil =>
+            totalRecords
+          case totalRecords :: _ :: _ =>
+            logWarning("Total number of records for each model is not all equal.")
+            totalRecords
+        }
 
       logInfo("Total records: " + totalRecords)
 
@@ -176,12 +176,11 @@ object EvaluationPimps extends Logging {
       .mapPartitions(partition => {
         val modelToCount: mutable.Map[Model, Long] = mutable.Map()
         partition.map {
-          case (score, (model, label)) => {
+          case (score, (model, label)) =>
             val index = modelToCount.getOrElse(model, 0L)
             modelToCount += (model -> (index + 1))
             // TODO Determine if keeping the score here is actually necessary - I don't think it makes sense
             (score, (model, label, index))
-          }
         }
       }, preservesPartitioning = true)
 

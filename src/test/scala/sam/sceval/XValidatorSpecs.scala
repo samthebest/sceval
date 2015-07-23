@@ -3,10 +3,11 @@ package sam.sceval
 import org.apache.spark.rdd.RDD
 import org.scalacheck.{Arbitrary, Gen}
 import org.specs2.ScalaCheck
+import org.specs2.matcher.MatchResult
 import org.specs2.mutable.Specification
 import Arbitrary.arbitrary
 
-import scala.util.Try
+import scala.util.{Random, Success, Failure, Try}
 
 class XValidatorSpecs extends Specification with ScalaCheck with IntellijHighlighingTrick {
   sequential
@@ -16,31 +17,34 @@ class XValidatorSpecs extends Specification with ScalaCheck with IntellijHighlig
   val xvalidator = XValidator(folds = folds, evalBins = Some(4))
   implicit val _: Arbitrary[Int] = Arbitrary(Gen.choose(1, 10))
 
-  // TODO Dry this, write listOfNs method
-  implicit val arbitraryListIntBool: Arbitrary[List[(Int, Boolean)]] = Arbitrary(Gen.frequency(
-    (1, Gen.listOfN(1, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(2, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(4, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(8, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(10, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(15, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(20, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(50, arbitrary[(Int, Boolean)])),
-    (1, Gen.listOfN(100, arbitrary[(Int, Boolean)]))
-  ))
+  def listOfNs[T: Arbitrary](Ns: List[Int]): Gen[List[T]] = Gen.frequency(Ns.map(n => (1, Gen.listOfN(n, arbitrary[T]))): _*)
+
+  implicit val arbitraryListIntBool: Arbitrary[List[(Int, Boolean)]] =
+    Arbitrary(listOfNs[(Int, Boolean)](List(1, 2, 4, 8, 10, 15, 20, 50, 100)))
 
   "XValidator" should {
     "split into fold folds and are same size (with possible off by ones)" ! check(prop(
-      (featuresAndLabels: List[(Int, Boolean)], partitions: Int) => {
-        val trySplit = Try(xvalidator.split(sc.makeRDD(featuresAndLabels, partitions)))
-        trySplit.isSuccess ==> {
-          val foldSizeMap = trySplit.get.map(p => (p._1, 1)).reduceByKey(_ + _).collect().toMap
-          foldSizeMap.size must_== folds
+      (featuresAndLabels: List[(Int, Boolean)], partitions: Int) =>
+        Try(xvalidator.split(sc.makeRDD(featuresAndLabels, partitions))) match {
+          case Failure(e) => e.isInstanceOf[IllegalArgumentException] must beTrue
+          case Success(rdd) =>
+            val foldSizeMap = rdd.map(p => (p._1, 1)).reduceByKey(_ + _).collect().toMap
+            foldSizeMap.size must_== folds
 
-          val total = foldSizeMap.values.sum
-          foldSizeMap.values.toSet must_===
-            (if (total % folds == 0) Set(total / folds) else Set(total / folds, total / folds + 1))
-        }
+            val total = foldSizeMap.values.sum
+            foldSizeMap.values.toSet must_===
+              (if (total % folds == 0) Set(total / folds) else Set(total / folds, total / folds + 1))
+        }))
+
+    "Not lose any records in full cross validation" ! check(prop(
+      (featuresAndLabels: List[(Int, Boolean)], partitions: Int) => Try(xvalidator.xval[Int](
+        trainAndScoreByModel = _.map {
+          case (fold, feature, label) => (fold, new Random().nextDouble(), label)
+        },
+        featuresAndLabel = sc.makeRDD(featuresAndLabels, partitions))
+      ) match {
+        case Failure(e) => e.isInstanceOf[IllegalArgumentException] must beTrue
+        case Success(confusions) => confusions.head.total must_=== featuresAndLabels.size.toLong
       }))
 
     "compute correct BinaryConfusionMatricies" in {
