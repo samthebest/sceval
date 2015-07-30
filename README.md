@@ -59,7 +59,7 @@ Since most models in Machine Learning tend to be defined in terms of mathematica
 
 One could argue that some of the above are unimportant since with sufficient examples these things average themselves out, and since it's assumed we are in a Big Data context worrying about these things is unnecessary.  This reasoning I fundementally disagree with, I would argue that when performing any experiment one should aim to minimize the number of assumptions and minimize the introduction of noise by the design of the experiment.  In this case the "design" of the experiment is the logic of the code, so the logic of the code should aim to minimize the introduction of noise.
 
-One could argue that by repeating the experiement multiple times we ought to be able to observe some convergence or rely upon our measures of performance if they do not seem to vary.  Indeed this is true, but in order to reach "statistical confidence" the experiment may need run many times, and since we are in a Big Data context, this is highly undesirable.
+One could argue that by repeating the experiement multiple times we ought to be able to observe some convergence or rely upon our measures of performance if they do not seem to vary.  Indeed this is true, but in order to reach "statistical confidence" the experiment may need run many times, and since we are in a Big Data context, this is undesirable.
 
 ### API Change
 
@@ -71,7 +71,7 @@ Using ScEval one can similtaneously evaluate multiple models. For example, suppo
 
 ### Deprecation of AUC & F1-Score (and no MCC (Mathews Correlation Coefficient))
 
-A bit like attributing greater semantics to a model score than it actually has, an equally common mistake is attributing greater semantics to the rather odd magic numbers seen in Data Science, that is AUC, F1-score & MCC.  The motivation for such numbers is obvious, given a difficult to comprehend set of performance measures on a model how do we compare models to ultimately decide which is the "best".  Well the correct answer is you don't, you use your use case with perhaps a probabilistic measure to decide. Different use cases will warrent different thresholds and different measures, for example recall may be important for medical diagnosis, while precision may be important for fraud detection.  In many circumstance, like marketting and advertising it's possible to go straight to expected profit - now this really *does have meaning*. 
+A bit like attributing greater semantics to a model score than it actually has, an equally common mistake is attributing greater semantics to the rather odd magic numbers seen in Data Science, that is AUC, F1-score & MCC.  The motivation for such numbers is obvious, given a difficult to comprehend set of performance measures on a model how do we compare models to ultimately decide which is the "best".  The correct answer is you don't, you use your use case with perhaps a probabilistic measure to decide. Different use cases will warrent different thresholds and different measures, for example recall may be important for medical diagnosis, while precision may be important for fraud detection.  In many circumstance, like marketting and advertising it's possible to go straight to expected profit - now this really *does have meaning*. 
 
 So when writting an evaluation API I feel responsible to include some warning regarding the mathematical validity of any methods that lack foundation.
 
@@ -87,7 +87,7 @@ There are also some easily googlable papers around AUC instability and such and 
 
 #### F1-Score & MCC
 
-These measures (as with many correlation coefficients) only have Probabilistic or Information Theoretic meaning if we assume we have a can opener, I mean, if we assume some underlying distributions in our data.  The motivation being to combine precision and recall, or a confusion, into a single number.  This seems to be an unheathly obsession of the human race.  Perhaps we are too stupid to cope with two or more numbers, so much so we even try to define stupidity (or intelligence) in terms of a single number (IQ).  Please let's try to keep Data Science a Science and accept that the world is not as simple as we would like it to be. We must design a measure of performance based on each individual use case, even if that means we actually have to think every so often.
+These measures (as with many correlation coefficients) only have Probabilistic or Information Theoretic meaning if we assume we have a can opener, I mean, if we assume some underlying distributions in our data.  The motivation being to combine precision and recall, or a confusion, into a single number.  This seems to be an unheathly obsession of the human race.  Perhaps we are incabable of coping with two or more numbers.  Please let's try to keep Data Science a Science and accept that the world is not as simple as we would like it to be. We must design a measure of performance based on each individual use case, even if that means we actually have to think every so often.
 
 ### Terminology
 
