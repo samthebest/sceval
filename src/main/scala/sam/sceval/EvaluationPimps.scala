@@ -1,7 +1,6 @@
 package sam.sceval
 
 import BinUtils._
-import org.apache.spark.Logging
 import org.apache.spark.rdd.{RDD, UnionRDD}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel.MEMORY_ONLY
@@ -17,7 +16,7 @@ import scala.reflect.ClassTag
 // Will be useful for evaluating matching algorithms or tiny-cluster clustering problems
 
 
-object EvaluationPimps extends Logging {
+object EvaluationPimps {
   implicit class PimpedScoresAndLabelsRDD(scoreAndLabels: RDD[(Double, Boolean)]) {
 
     import PimpedScoresAndLabelsRDD._
@@ -45,7 +44,7 @@ object EvaluationPimps extends Logging {
       val partitionwiseCumCounts: Array[MutableBinaryLabelCount] = partitionwiseCumulativeCounts(binnedCounts)
       val totalCount = partitionwiseCumCounts.last
 
-      logInfo(s"Total counts: $totalCount")
+      println(s"INFO: Total counts: $totalCount")
 
       binnedCounts.mapPartitionsWithIndex(
         (index, partition) => partition.map {
@@ -127,11 +126,11 @@ object EvaluationPimps extends Logging {
           case totalRecords :: Nil =>
             totalRecords
           case totalRecords :: _ :: _ =>
-            logWarning("Total number of records for each model is not all equal.")
+            println("WARN: Total number of records for each model is not all equal.")
             totalRecords
         }
 
-      logInfo("Total records: " + totalRecords)
+      println("INFO: Total records: " + totalRecords)
 
       lastIndexes.find(_.nonEmpty).map { aNonEmptyPartition =>
         recordsPerBin.foreach(r => require(r < totalRecords, s"Cannot request $r records per bin as not enough " +
@@ -139,7 +138,7 @@ object EvaluationPimps extends Logging {
 
         val numRecordsPerBin: Long = recordsPerBin.getOrElse(optimizeRecordsPerBin(totalRecords, bins.get))
 
-        logInfo("Bins that will used: " + resultingBinNumber(numRecordsPerBin.toInt, totalRecords) +
+        println("INFO: Bins that will used: " + resultingBinNumber(numRecordsPerBin.toInt, totalRecords) +
           ", each with " + numRecordsPerBin + " records")
 
         reindexWithBinner(indexed, binnerFac(lastIndexes, numRecordsPerBin))
@@ -258,10 +257,10 @@ object EvaluationPimps extends Logging {
         val countsSize = sortedCounts.count()
         countsSize / desiredBins match {
           case g if g < 2 =>
-            logInfo(s"Curve is too small ($countsSize) for $desiredBins bins to be useful")
+            println(s"INFO: Curve is too small ($countsSize) for $desiredBins bins to be useful")
             sortedCounts
           case g if g >= Int.MaxValue =>
-            logWarning(s"Curve too large ($countsSize) for $desiredBins bins; capping at ${Int.MaxValue}")
+            println(s"WARN: Curve too large ($countsSize) for $desiredBins bins; capping at ${Int.MaxValue}")
             downSample(Int.MaxValue, sortedCounts)
           case g =>
             downSample(g.toInt, sortedCounts)

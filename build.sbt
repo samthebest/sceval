@@ -1,10 +1,7 @@
 val companyName = "sceval"
 val domain = "sam"
 
-val mavenRepo: String = "maven." + companyName + "." + domain
-
 resolvers ++= Seq(
-  "mvnrepository" at "https://repository.cloudera.com/artifactory/cloudera-repos/",
   Resolver.sonatypeRepo("releases"),
   Resolver.sonatypeRepo("snapshots")
 )
@@ -14,9 +11,9 @@ libraryDependencies ++= Seq(
   "org.specs2" %% "specs2-core" % "2.4.15" % "test" withSources() withJavadoc(),
   "org.specs2" %% "specs2-scalacheck" % "2.4.15" % "test" withSources() withJavadoc(),
   // For some reason omitting spark-sql causes crazy exceptions ... *tut* *tut* typical
-  ("org.apache.spark" % "spark-sql_2.10" % "1.3.0-cdh5.4.2") withSources() withJavadoc(),
-  ("org.apache.spark" % "spark-core_2.10" % "1.3.0-cdh5.4.2") withSources() withJavadoc(),
-  ("org.apache.spark" % "spark-mllib_2.10" % "1.3.0-cdh5.4.2") withSources() withJavadoc()
+  "org.apache.spark" %% "spark-core" % "2.0.1" withSources() withJavadoc(),
+  "org.apache.spark" %% "spark-sql" % "2.0.1" withSources() withJavadoc(),
+  "org.apache.spark" %% "spark-mllib" % "2.0.1" withSources() withJavadoc()
 )
 
 
@@ -46,9 +43,7 @@ mergeStrategy in assembly <<= (mergeStrategy in assembly)((old) => {
   case PathList(_*) => MergeStrategy.first // added this line
 })
 
-scalaVersion := "2.10.4"
-
-//scalacOptions ++= Seq("-deprecation", "-feature")
+scalaVersion := "2.11.8"
 
 javaOptions ++= Seq("-target", "1.8", "-source", "1.8")
 
