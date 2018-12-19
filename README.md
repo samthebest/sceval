@@ -97,7 +97,7 @@ These measures (as with many correlation coefficients) only have Probabilistic o
 
 ### Other Differences
 
-Specs2 is used over ScalaTest, this is really out of familiarity, especially when used in conjunction with ScalaCheck.  If merged into MLLib, I imagine the tests would need to be refactored to use ScalaTest since most devmasters don't like multiple frameworks in a single project.
+Specs2 is used over ScalaTest, this is mainly for the type-checked matchers.
 
 SBT is used over Maven, no reason other than convention and familarity.
 
